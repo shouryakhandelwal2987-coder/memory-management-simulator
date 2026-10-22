@@ -1,0 +1,339 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Management Simulator</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f2f6fc;
+    color: #172b4d;
+}
+
+header {
+    background: #172b4d;
+    color: white;
+    padding: 24px;
+    text-align: center;
+}
+
+header h1 { margin: 0 0 8px; }
+
+.container {
+    max-width: 1100px;
+    margin: 25px auto;
+    padding: 16px;
+}
+
+.panel, .result {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 3px 12px #dce4ef;
+}
+
+.inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #bdcbe0;
+    border-radius: 7px;
+    font-size: 16px;
+}
+
+button {
+    background: #3568d4;
+    color: white;
+    border: none;
+    border-radius: 7px;
+    padding: 13px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 16px;
+}
+
+button:hover { background: #244eaa; }
+
+#message { color: #b42318; }
+
+.results {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.result h2 { font-size: 21px; }
+
+.result p { line-height: 1.5; }
+
+.first { border-top: 5px solid #3779df; }
+.best { border-top: 5px solid #17966b; }
+.worst { border-top: 5px solid #8a58d6; }
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+th, td {
+    border: 1px solid #dce4ef;
+    padding: 8px 5px;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+th { background: #edf3fc; }
+
+.memory-block {
+    padding: 10px 4px;
+    margin: 7px 0;
+    border-radius: 6px;
+    background: #e6edfa;
+    text-align: center;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.allocated { background: #c8f1df; }
+.empty { background: #e4e8ef; }
+
+footer {
+    background: #172b4d;
+    color: white;
+    text-align: center;
+    padding: 18px;
+}
+
+@media (max-width: 800px) {
+    .results { grid-template-columns: 1fr; }
+    .inputs { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Memory Management Simulator</h1>
+    <p>Operating System Mini Project</p>
+</header>
+
+<main class="container">
+
+<section class="panel">
+    <h2>Enter Memory Details</h2>
+
+    <div class="inputs">
+        <div>
+            <label for="blocks">Memory Block Sizes (KB)</label>
+            <input id="blocks" value="100, 500, 200, 300, 600">
+        </div>
+
+        <div>
+            <label for="processes">Process Sizes (KB)</label>
+            <input id="processes" value="212, 417, 112, 426">
+        </div>
+    </div>
+
+    <button onclick="simulate()">Simulate Allocation</button>
+    <p id="message"></p>
+</section>
+
+<section class="results" id="results"></section>
+
+<section class="panel">
+    <h2>About Memory Management</h2>
+    <p>
+        Memory management is an operating system function that
+        allocates and manages memory for running processes.
+    </p>
+
+    <h3>Algorithms Used</h3>
+    <p><b>First Fit:</b> Selects the first block large enough.</p>
+    <p><b>Best Fit:</b> Selects the smallest suitable block.</p>
+    <p><b>Worst Fit:</b> Selects the largest suitable block.</p>
+
+    <h3>Important Terms</h3>
+    <p><b>Process:</b> A program being executed.</p>
+    <p><b>Memory Block:</b> A section of available memory.</p>
+    <p><b>Internal Fragmentation:</b> Unused space inside an allocated block.</p>
+</section>
+
+</main>
+
+<footer>
+    OS Mini Project | Memory Management Simulator
+</footer>
+
+<script>
+function simulate() {
+    const message = document.getElementById("message");
+    const output = document.getElementById("results");
+
+    const blocks = document.getElementById("blocks").value
+        .split(",").map(x => Number(x.trim()));
+
+    const processes = document.getElementById("processes").value
+        .split(",").map(x => Number(x.trim()));
+
+    if (
+        !blocks.length || !processes.length ||
+        blocks.some(x => !Number.isSafeInteger(x) || x <= 0) ||
+        processes.some(x => !Number.isSafeInteger(x) || x <= 0)
+    ) {
+        message.textContent =
+            "Enter positive whole numbers separated by commas.";
+        output.innerHTML = "";
+        return;
+    }
+
+    message.textContent = "";
+
+    function allocate(type) {
+        // Each algorithm starts with fresh memory.
+        const remaining = [...blocks];
+        const assigned = Array(blocks.length).fill(null);
+        const rows = [];
+
+        processes.forEach((size, index) => {
+            let chosen = -1;
+
+            for (let j = 0; j < remaining.length; j++) {
+                if (remaining[j] >= size) {
+                    if (type === "First Fit") {
+                        chosen = j;
+                        break;
+                    }
+
+                    if (
+                        chosen === -1 ||
+                        (type === "Best Fit" &&
+                         remaining[j] < remaining[chosen]) ||
+                        (type === "Worst Fit" &&
+                         remaining[j] > remaining[chosen])
+                    ) {
+                        chosen = j;
+                    }
+                }
+            }
+
+            if (chosen !== -1) {
+                rows.push({
+                    process: "P" + (index + 1),
+                    size: size,
+                    block: "Block " + (chosen + 1),
+                    status: "Allocated"
+                });
+
+                assigned[chosen] = {
+                    process: "P" + (index + 1),
+                    size: size
+                };
+
+                // Remaining capacity in the block.
+                remaining[chosen] -= size;
+            } else {
+                rows.push({
+                    process: "P" + (index + 1),
+                    size: size,
+                    block: "-",
+                    status: "Not allocated"
+                });
+            }
+        });
+
+        const successful = rows.filter(
+            row => row.status === "Allocated"
+        ).length;
+
+        const unused = remaining.reduce((sum, n) => sum + n, 0);
+
+        return { rows, assigned, remaining, successful, unused };
+    }
+
+    function renderCard(name, className, description, data) {
+        let html = `
+            <article class="result ${className}">
+            <h2>${name}</h2>
+            <p>${description}</p>
+            <table>
+            <tr>
+                <th>Process</th>
+                <th>Size (KB)</th>
+                <th>Block</th>
+            </tr>`;
+
+        data.rows.forEach(row => {
+            html += `
+                <tr>
+                    <td>${row.process}</td>
+                    <td>${row.size}</td>
+                    <td>${row.block}</td>
+                </tr>`;
+        });
+
+        html += `</table>
+            <p><b>Allocated:</b> ${data.successful}
+            / ${processes.length}</p>
+            <p><b>Unallocated:</b> ${processes.length -
+                data.successful} processes</p>
+            <h3>Memory Layout</h3>`;
+
+        blocks.forEach((block, i) => {
+            const item = data.assigned[i];
+            const free = data.remaining[i];
+
+            html += `
+                <div class="memory-block ${item ? "allocated" : "empty"}">
+                Block ${i + 1}: ${block} KB<br>
+                ${item ? item.process + " (" + item.size +
+                    " KB)" : "No allocation"}<br>
+                Remaining: ${free} KB
+                </div>`;
+        });
+
+        html += `</article>`;
+        return html;
+    }
+
+    const descriptions = {
+        "First Fit": "Finds the first suitable memory block.",
+        "Best Fit": "Finds the smallest suitable memory block.",
+        "Worst Fit": "Finds the largest suitable memory block."
+    };
+
+    const algorithms = [
+        ["First Fit", "first"],
+        ["Best Fit", "best"],
+        ["Worst Fit", "worst"]
+    ];
+
+    output.innerHTML = algorithms.map(([name, css]) =>
+        renderCard(name, css, descriptions[name], allocate(name))
+    ).join("");
+}
+
+simulate();
+</script>
+
+</body>
+</html>
